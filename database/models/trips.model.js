@@ -38,8 +38,8 @@ module.exports = (sequelize) => {
     timestamps: false,
     underscored: true,
     indexes: [
-      { fields: ['device_id'], name: 'idx_device_id' },
-      { fields: ['starts_at'], name: 'idx_starts_at' },
+      { fields: ['device_id'], name: 'idx_trip_device_id' },
+      { fields: ['starts_at'], name: 'idx_trip_starts_at' },
     ],
   });
 

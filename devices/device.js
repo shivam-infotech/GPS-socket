@@ -192,12 +192,12 @@ class Device extends EventHandler {
         
         pingData = this.checkFilters(pingData); // Applying the applicable filters to the ping data
         if(pingData.isCompatible){ // if the data qualifies for the filters, then it will be broadcasted to the clients
-            this.updateHistory(pingData); // Updating the history of the device
             this.getWsNamespace().emit(this.getWsTopic('ping'), pingData); // Broadcasting the ping data to all the clients subscribed to the 'ping' namespace
             const trackings = await saveTrackingData(pingData) // Saving Tracking Data
-
+            
             // Identifying events and storing it into DB
             this.saveEventAndInform(pingData, trackings);
+            this.updateHistory(pingData); // Updating the history of the device
         }
     }
     async onAlarm(data){
@@ -219,21 +219,52 @@ class Device extends EventHandler {
      * @param {*} pingData - Data from the device
      * @param {*} tracking - Saved model data from trackings table.
      */
-    saveEventAndInform(pingData, tracking){
-        const lastCoords = this.getHistory()[this.getHistory().lenght - 1];
-        const data = {
+    saveEventAndInform(pingData, tracking) {
+        const lastCoords = this.getHistory()[this.getHistory().length - 1];
+        let data = {
             eventType: null,
             trackingId: tracking.id,
             deviceId: this.getDeviceId(),
             date: pingData.date
         };
-        if(pingData.accStatus && !lastCoords.accStatus) data.eventType = 'ignition-on';
-        else if(!pingData.accStatus && lastCoords.accStatus) data.eventType = 'ignition-off';
-        else if(pingData.deviceStatus === 'running' && lastCoords.deviceStatus !== 'running') data.eventType = 'device-running';
-        else if(pingData.deviceStatus === 'stopped' && lastCoords.deviceStatus !== 'stopped') data.eventType = 'device-stopped';
-        else if(pingData.deviceStatus === 'idle' && lastCoords.deviceStatus !== 'idle') data.eventType = 'device-idle';
 
-        if(data.eventType){
+
+        // If there's no lastCoords, save the initial status
+        if (!lastCoords) {
+            if (pingData.accStatus) data.eventType = 'ignition-on';
+            else data.eventType = 'ignition-off';
+            // Also check movement status if available
+            if (pingData.deviceStatus && data.eventType === 'ignition-on') {
+                switch (pingData.deviceStatus) {
+                    case 'running':
+                        data.eventType = 'device-running';
+                        break;
+                    case 'stopped':
+                        data.eventType = 'device-stopped';
+                        break;
+                    case 'idle':
+                        data.eventType = 'device-idle';
+                        break;
+                }
+            }
+        }
+        // Check ignition status changes
+        else if (pingData?.accStatus !== lastCoords?.accStatus) {
+            data.eventType = pingData.accStatus ? 'ignition-on' : 'ignition-off';
+        }
+        // Check movement status changes
+        else if (pingData?.deviceStatus !== lastCoords?.deviceStatus) {
+            switch (pingData.deviceStatus) {
+                case 'running':
+                    data.eventType = 'device-running';
+                    break;
+                case 'stopped':
+                    data.eventType = 'device-stopped';
+                    break;
+            }
+        }
+
+        if (data.eventType) {
             saveEvent(data.eventType, data.trackingId, data.deviceId, data.date);
             this.getWsNamespace().emit(this.getWsTopic('event'), {
                 event: data.eventType,

@@ -26,7 +26,7 @@ module.exports = {
             if(lastCord){
                 // running time
                 if(new Date(data.extras.date) > new Date(lastCord.extras.date)){
-                    timeDiff = Math.abs(Utils.diffInSeconds(lastCord.extras.date, data.extras.date));
+                    timeDiff = Math.abs(Utils.diffInMilisecond(lastCord.extras.date, data.extras.date));
 
                     if(lastCord.extras.deviceStatus === 'running' && data.extras.deviceStatus === 'running') runningTime += timeDiff;
                     else if(lastCord.extras.deviceStatus === 'running' && data.extras.deviceStatus === 'idle') runningTime += timeDiff;
@@ -60,7 +60,7 @@ module.exports = {
 
         const averageSpeed = parseFloat((Utils.averageSpeed(... speedSeries) || 0).toFixed(2));
         const maxSpeed = Math.max(... speedSeries, 0);
-        const minSpeed = Math.min(... speedSeries.filter(s => s > 0));
+        const minSpeed = Math.min(... speedSeries.filter(s => s > 0)) || 0;
 
         return {
             startingLocation: trackings[0]?.extras?.address || 'N/A',
@@ -73,7 +73,9 @@ module.exports = {
             averageSpeed,
             maxSpeed,
             minSpeed,
-            stopages: StoppedLocations
+            stopages: StoppedLocations,
+            startTime: trackings[0]?.extras?.date || 'N/A',
+            endTime: trackings[trackings.length - 1]?.extras?.date || 'N/A'
         }
     },
 

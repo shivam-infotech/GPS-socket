@@ -81,9 +81,9 @@ module.exports = (sequelize) => {
     timestamps: true,
     underscored: true,
     indexes: [
-      { fields: ['trip_id'], name: 'idx_trip_id' },
-      { fields: ['date_from_device'], name: 'idx_date_from_device' },
-      { fields: ['longitude', 'latitude'], name: 'idx_coordinates' },
+      { fields: ['trip_id'], name: 'idx_tracking_trip_id' },
+      { fields: ['date_from_device'], name: 'idx_tracking_date_from_device' },
+      { fields: ['longitude', 'latitude'], name: 'idx_tracking_coordinates' },
     ],
   });
 

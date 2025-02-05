@@ -23,7 +23,7 @@ router.get('/device/:deviceId/trip/:startDate/:endDate', StatsController.getTrip
 router.get('/device/:deviceId/travel/summary/:startDate/:endDate', StatsController.getTravelSummary);
 
 router.get('/event-types', async (req, res) => {
-    const eventTypes = models.EventType.findAll();
+    const eventTypes = models.eventTypes.findAll();
     res.json(eventTypes);
 });
 
