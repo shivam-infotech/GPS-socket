@@ -51,7 +51,7 @@ class TcpServer extends EventHandler {
         Debug.log('--------- New TCP Srver Initating ---------');
         this.setServer(this.getConnector().createServer((socket) => {
             Debug.log("New connection from " + socket.remoteAddress + ":" + socket.remotePort);
-
+            socket.setKeepAlive(true, 10000); // making the connection auto awake after 60 secs
             this.onConnection(socket, socket.remoteAddress, socket.remotePort);
         }))
     }
@@ -63,22 +63,21 @@ class TcpServer extends EventHandler {
             this.onData(data, socket, remoteAddr, remotePort)
         });
         socket.on('end', () => this.onEndConnection(socket, remoteAddr, remotePort))
-        socket.on('error', (error) => this.onError(error));
+        socket.on('error', (error, remoteAddr, remotePort) => this.onError(error, remoteAddr, remotePort));
     }
     
     onData(data, socket, remoteAddr, remotePort){
-        Debug.log(`Received data from ${remoteAddr}:${remotePort} -- ${data}`);
         this.emit('data', data, socket, remoteAddr, remotePort);
     }
 
     onEndConnection(socket, remoteAddr, remotePort) {
         this.removeSocket(remoteAddr + ':' + remotePort);
-        Debug.log(`Connection from ${remoteAddr}:${remotePort} terminated.`);
         this.emit('end-connection', socket, remoteAddr, remotePort);
+        Debug.log(`Connection Ending `,`${remoteAddr}:${remotePort} `);
     }
 
-    onError(error){
-        Debug.log(`Error occurred: ${error.message}`);
+    onError(error, remoteAddr, remotePort){
+        Debug.log(`Error occurred in `,`${remoteAddr}:${remotePort} ` ,error.message);
     }
 
     static init(host, port){
@@ -87,7 +86,7 @@ class TcpServer extends EventHandler {
 
     listen(onListenCallback = null){
         this.getServer().listen(this.getPort(), this.getHost(), () => {
-            Debug.log('Server listening on', this.getHost() + ':' + this.getPort());
+            Debug.log('TCP Server listening on', this.getHost() + ':' + this.getPort());
             if(onListenCallback) onListenCallback()
         });
     }

@@ -4,23 +4,17 @@ const { Debug } = require("../utils/debug");
 
 const eventService = {
     async saveEvent(type, tracking_id, device_id, date){
-        try{
-            const eventType = await models.EventType.findOne({ where: {name: type} });
-        
-            if(eventType){
-                Debug.log("----- Saving Event on DB -----");
-                return await models.Event.create({
-                    event_type_id: eventType.id,
-                    device_id,
-                    tracking_id,
-                    date_from_device: date,
-                })
-            }
-
-            return null
-        }catch(error){
-            Debug.log("----- Fail to save the event -----");
+        const eventType = await models.EventType.findOne({ where: {name: type} });
+        if(!eventType){
+            throw new Error("Specified event not found on event types")
         }
+
+        return await models.Event.create({
+            event_type_id: eventType.id,
+            device_id,
+            tracking_id,
+            date_from_device: date,
+        })
     },
 
     async getEvents(deviceId, startDate, endDate){

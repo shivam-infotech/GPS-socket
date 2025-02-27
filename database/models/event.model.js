@@ -47,10 +47,10 @@ module.exports = (sequelize) => {
     timestamps: false,
     underscored: true,
     indexes: [
-      { fields: ['event_type_id'], name: 'idx_event_type_id' },
-      { fields: ['device_id'], name: 'idx_device_id' },
-      { fields: ['date_from_device'], name: 'idx_date_from_device' },
-      { fields: ['tracking_id'], name: 'idx_tracking_id' },
+      { fields: ['event_type_id'], name: 'idx_event_event_type_id' },
+      { fields: ['device_id'], name: 'idx_event_device_id' },
+      { fields: ['date_from_device'], name: 'idx_event_date_from_device' },
+      { fields: ['tracking_id'], name: 'idx_event_tracking_id' },
     ],
   });
 

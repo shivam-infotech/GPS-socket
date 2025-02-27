@@ -19,6 +19,7 @@ const InvalidDataFilter = require('../filters/invalid-data.filter');
 const TemporalFilter = require('../filters/temporal.filter');
 const MovementFilter = require("../filters/movement.filter");
 const { saveEvent } = require("../services/event.service");
+const mapsService = require("../services/maps.services");
 
 class Device extends EventHandler {
     // Connection information of the device from TCP server
@@ -141,16 +142,7 @@ class Device extends EventHandler {
     }
     lookForProtocol(data){
         return this.getModel().lookForProtocol(data);
-    }
-    attachBasicInfoWithPingData(data){
-        return {
-            ...data,
-            deviceId: this.getDeviceId(),
-            ip: this.getRemoteAddress(),
-            port: this.getRemotePort(),
-            accuracy: this.calculateMovementQuality(data),
-        };
-    }
+    } 
     calculateMovementQuality(pingData) {
         let accuracy = 100; // Best accuracy starts at 100%
 
@@ -186,24 +178,48 @@ class Device extends EventHandler {
         this.setIsConnected(true)
         saveEvent('connected', null, this.getDeviceId(), new Date().toISOString());
     }
+    async gentlyCleanData(pingData){
+        let FormatedData = {
+            deviceId: this.getDeviceId(),
+            ip: this.getRemoteAddress(),
+            port: this.getRemotePort(),
+            accuracy: this.calculateMovementQuality(pingData),
+            address: await this.getAddress(pingData.latitude, pingData.longitude),
+            protocolId: pingData.protocolId,
+            date: pingData.date,
+            latitude: pingData.latitude,
+            longitude: pingData.longitude,
+            speed: pingData.speed,
+            orientation: pingData.orientation,
+            accStatus: pingData.accStatus,
+            deviceStatus: pingData.deviceStatus,
+        };
+        FormatedData = this.attachLastStatusAndChangedTime(FormatedData);
+        return FormatedData;
+    }
+
+    async getAddress(lat, lng){
+        return await mapsService.getAddressByLatLng(lat, lng);
+    }
+
     async onPing(data){
-        let pingData = this.attachBasicInfoWithPingData(await this.getModel().extractPingData(data))
-        pingData = this.attachLastStatusAndChangedTime(pingData); // Attach the last status and changed time to the ping data
-        
+        let pingData = await this.getModel().extractPingData(data)
         pingData = this.checkFilters(pingData); // Applying the applicable filters to the ping data
+        
         if(pingData.isCompatible){ // if the data qualifies for the filters, then it will be broadcasted to the clients
-            this.updateHistory(pingData); // Updating the history of the device
+            pingData = await this.gentlyCleanData(pingData);
             this.getWsNamespace().emit(this.getWsTopic('ping'), pingData); // Broadcasting the ping data to all the clients subscribed to the 'ping' namespace
             const trackings = await saveTrackingData(pingData) // Saving Tracking Data
-
+            
             // Identifying events and storing it into DB
             this.saveEventAndInform(pingData, trackings);
+            this.updateHistory(pingData); // Updating the history of the device
         }
     }
     async onAlarm(data){
-        const pingData = await this.getModel().extractPingData(data)
+        // const pingData = await this.getModel().extractPingData(data)
         pingData.type = 'alarm';
-        
+        Debug.log("Alarm by: ", this.getDeviceId());
     }
     onHeartBeat(){
         Debug.log("Heartbeat by: ", this.getDeviceId());
@@ -219,21 +235,52 @@ class Device extends EventHandler {
      * @param {*} pingData - Data from the device
      * @param {*} tracking - Saved model data from trackings table.
      */
-    saveEventAndInform(pingData, tracking){
-        const lastCoords = this.getHistory()[this.getHistory().lenght - 1];
-        const data = {
+    saveEventAndInform(pingData, tracking) {
+        const lastCoords = this.getHistory()[this.getHistory().length - 1];
+        let data = {
             eventType: null,
             trackingId: tracking.id,
             deviceId: this.getDeviceId(),
             date: pingData.date
         };
-        if(pingData.accStatus && !lastCoords.accStatus) data.eventType = 'ignition-on';
-        else if(!pingData.accStatus && lastCoords.accStatus) data.eventType = 'ignition-off';
-        else if(pingData.deviceStatus === 'running' && lastCoords.deviceStatus !== 'running') data.eventType = 'device-running';
-        else if(pingData.deviceStatus === 'stopped' && lastCoords.deviceStatus !== 'stopped') data.eventType = 'device-stopped';
-        else if(pingData.deviceStatus === 'idle' && lastCoords.deviceStatus !== 'idle') data.eventType = 'device-idle';
 
-        if(data.eventType){
+
+        // If there's no lastCoords, save the initial status
+        if (!lastCoords) {
+            if (pingData.accStatus) data.eventType = 'ignition-on';
+            else data.eventType = 'ignition-off';
+            // Also check movement status if available
+            if (pingData.deviceStatus && data.eventType === 'ignition-on') {
+                switch (pingData.deviceStatus) {
+                    case 'running':
+                        data.eventType = 'device-running';
+                        break;
+                    case 'stopped':
+                        data.eventType = 'device-stopped';
+                        break;
+                    case 'idle':
+                        data.eventType = 'device-idle';
+                        break;
+                }
+            }
+        }
+        // Check ignition status changes
+        else if (pingData?.accStatus !== lastCoords?.accStatus) {
+            data.eventType = pingData.accStatus ? 'ignition-on' : 'ignition-off';
+        }
+        // Check movement status changes
+        else if (pingData?.deviceStatus !== lastCoords?.deviceStatus) {
+            switch (pingData.deviceStatus) {
+                case 'running':
+                    data.eventType = 'device-running';
+                    break;
+                case 'stopped':
+                    data.eventType = 'device-stopped';
+                    break;
+            }
+        }
+
+        if (data.eventType) {
             saveEvent(data.eventType, data.trackingId, data.deviceId, data.date);
             this.getWsNamespace().emit(this.getWsTopic('event'), {
                 event: data.eventType,

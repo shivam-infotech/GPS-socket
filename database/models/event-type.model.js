@@ -31,8 +31,8 @@ module.exports = (sequelize) => {
     timestamps: false,
     underscored: true,
     indexes: [
-      { fields: ['name'], name: 'idx_name' },
-      { fields: ['priority'], name: 'idx_priority' },
+      { fields: ['name'], name: 'idx_event_type_name' },
+      { fields: ['priority'], name: 'idx_event_type_priority' },
     ],
   });
 

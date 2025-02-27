@@ -5,7 +5,7 @@ const path = require('path');
 const conn =  new Sequelize(process.env.DATABASE_NAME, process.env.DATABASE_USER, process.env.DATABASE_PASSWORD || null, {
     host: process.env.DATABASE_HOST,
     dialect: process.env.DATABASE_DRIVER,
-    // logging: (args) => false
+    logging: (args) => false
 });
 
 conn.authenticate()
@@ -47,6 +47,6 @@ conn.sync().then(() => {
                 }
             });
     }
-}).catch(err => Debug.log('Fail to refresh the database schema'));
+}).catch(err => Debug.log('Fail to refresh the database schema', err));
 
 module.exports = { conn, models };

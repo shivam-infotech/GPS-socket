@@ -88,17 +88,14 @@ class GT06 extends BaseModel{
         
         // @todo: Fix this part of the code as the gpsStatus isn't accurate.
         // In case the GPS fix is not available, we need to fix it using the LBS data.
-        if(parsedData.gpsStatus === 0){
-            let location = await this.fixGeoLocations(parsedData.mcc, parsedData.mnc, parsedData.lac, parsedData.cellId);
-            parsedData.locationType = 'approximate'
-            if(location){
-                parsedData.latitudeApprox = location?.lat;
-                parsedData.longitudeApprox = location?.lng;
-            }
-        }
-
-        // binding address with the device data
-        parsedData.address = await this.getAddress(parsedData.latitude, parsedData.longitude);
+        // if(parsedData.gpsStatus === 0){
+        //     let location = await this.fixGeoLocations(parsedData.mcc, parsedData.mnc, parsedData.lac, parsedData.cellId);
+        //     parsedData.locationType = 'approximate'
+        //     if(location){
+        //         parsedData.latitudeApprox = location?.lat;
+        //         parsedData.longitudeApprox = location?.lng;
+        //     }
+        // }
 
         return parsedData;
     }
@@ -107,36 +104,28 @@ class GT06 extends BaseModel{
         return await mapsService.getLocationByLbsData(mcc, mnc, lac, cellId);
     }
 
-    async getAddress(lat, lng){
-        return await mapsService.getAddressByLatLng(lat, lng);
-    }
-
     extractParts(socketData, protocolId){
         return {
             type: 'ping',
-            locationType: 'accurate',
-            sequencialPacketCount: this.extractSequencialPacketCount(socketData),
+            // locationType: 'accurate',
+            // sequencialPacketCount: this.extractSequencialPacketCount(socketData),
             date: this.extractDate(socketData),
             latitude: this.extractLatitude(socketData),
             longitude: this.extractLongitude(socketData),
             speed: this.extractSpeed(socketData),
             orientation: this.extractOrientation(socketData),
-            power: this.extractPowerStatus(socketData),
-            gsm: this.extractGsm(socketData, protocolId),
-            alert: this.extractAlert(socketData),
-            mnc: this.extractMnc(socketData),
-            lac: this.extractLac(socketData),
-            mcc: this.extractMmc(socketData),
-            cellId: this.extractCellId(socketData),
-            deviceInfo: this.extractDeviceInfo(socketData, protocolId),
-            gpsStatus: this.extractGpsStatus(socketData, protocolId),
-            powerStatus: this.extractPowerStatus(socketData, protocolId),
+            // power: this.extractPowerStatus(socketData),
+            // gsm: this.extractGsm(socketData, protocolId),
+            // alert: this.extractAlert(socketData),
+            // mnc: this.extractMnc(socketData),
+            // lac: this.extractLac(socketData),
+            // mcc: this.extractMmc(socketData),
+            // cellId: this.extractCellId(socketData),
+            // deviceInfo: this.extractDeviceInfo(socketData, protocolId),
+            // gpsStatus: this.extractGpsStatus(socketData, protocolId),
+            // powerStatus: this.extractPowerStatus(socketData, protocolId),
             accStatus: this.extractAccStatus(socketData, protocolId),
             deviceStatus: this.extractDeviceStatus(socketData, protocolId),
-            // overSpeedAlarmStatus: this.extractOverSpeedAlarmStatus(socketData, protocolId),
-            // gpsAntennaStatus: this.extractGpsAntennaStatus(socketData, protocolId),
-            // gpsRealTimeStatus: this.extractGpsRealTimeStatus(socketData, protocolId),
-            // chargeStatus: this.extractChargeStatus(socketData, protocolId),
         };
     }
 

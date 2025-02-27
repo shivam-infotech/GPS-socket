@@ -22,12 +22,12 @@ module.exports = (sequelize) => {
     },
     protocol_id: {
       type: DataTypes.SMALLINT,
-      allowNull: false,
+      allowNull: true,
     },
-    sequential_count: {
-      type: DataTypes.BIGINT,
-      allowNull: false,
-    },
+    // sequential_count: {
+    //   type: DataTypes.BIGINT,
+    //   allowNull: false,
+    // },
     date_from_device: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -45,16 +45,16 @@ module.exports = (sequelize) => {
       type: DataTypes.DECIMAL(9, 6),
       allowNull: false,
     },
-    location_type: {
-      type: DataTypes.ENUM('accurate', 'approximate'),
-      defaultValue: 'accurate',
-    },
-    longitude_appox: {
-      type: DataTypes.DECIMAL(9, 6),
-    },
-    latitude_appox: {
-      type: DataTypes.DECIMAL(9, 6),
-    },
+    // location_type: {
+    //   type: DataTypes.ENUM('accurate', 'approximate'),
+    //   defaultValue: 'accurate',
+    // },
+    // longitude_appox: {
+    //   type: DataTypes.DECIMAL(9, 6),
+    // },
+    // latitude_appox: {
+    //   type: DataTypes.DECIMAL(9, 6),
+    // },
     speed: {
       type: DataTypes.DECIMAL(10, 2),
     },
@@ -65,10 +65,10 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: true
     },
-    alert: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
+    // alert: {
+    //   type: DataTypes.INTEGER,
+    //   allowNull: true,
+    // },
     device_status: {
         type: DataTypes.ENUM('stopped', 'running', 'idle', 'offline'),
         defaultValue: 'stopped'
@@ -81,9 +81,9 @@ module.exports = (sequelize) => {
     timestamps: true,
     underscored: true,
     indexes: [
-      { fields: ['trip_id'], name: 'idx_trip_id' },
-      { fields: ['date_from_device'], name: 'idx_date_from_device' },
-      { fields: ['longitude', 'latitude'], name: 'idx_coordinates' },
+      { fields: ['trip_id'], name: 'idx_tracking_trip_id' },
+      { fields: ['date_from_device'], name: 'idx_tracking_date_from_device' },
+      { fields: ['longitude', 'latitude'], name: 'idx_tracking_coordinates' },
     ],
   });
 
