@@ -11,6 +11,7 @@ const { Utils } = require('../utils/common');
 
 const { EventHandler } = require('../events/event-handler');
 const { Debug } = require('../utils/debug');
+const Server = require('../server');
 
 /**
  * @event data - data received from the client
@@ -21,7 +22,8 @@ class TcpServer extends EventHandler {
     __sockets = []; // Holds all the active sockets, that are emitting the data
     __port = 8080;
     __host = 'localhost';
-    __connector = require('net')
+    __connector = require('net');
+    __monitorInterval = null;
 
     setServer(server) { this.__server = server; return this; }
     getServer() { return this.__server; }
@@ -51,7 +53,12 @@ class TcpServer extends EventHandler {
         Debug.log('--------- New TCP Srver Initating ---------');
         this.setServer(this.getConnector().createServer((socket) => {
             Debug.log("New connection from " + socket.remoteAddress + ":" + socket.remotePort);
-            socket.setKeepAlive(true, 10000); // making the connection auto awake after 60 secs
+
+            // Improving connection stability
+            socket.setKeepAlive(true, 30000); // making the connection auto awake after 60 secs
+            socket.setTimeout(60000); // Add a 60-second timeout
+
+            // Binding events
             this.onConnection(socket, socket.remoteAddress, socket.remotePort);
         }))
     }
@@ -63,10 +70,72 @@ class TcpServer extends EventHandler {
             this.onData(data, socket, remoteAddr, remotePort)
         });
         socket.on('end', () => this.onEndConnection(socket, remoteAddr, remotePort))
-        socket.on('error', (error, remoteAddr, remotePort) => this.onError(error, remoteAddr, remotePort));
+        socket.on('error', (error) => this.onError(error, remoteAddr, remotePort));
+        socket.on('timeout', () => {
+            Debug.log(`Connection timeout for ${socket.remoteAddress}:${socket.remotePort}`);
+            socket.end();
+        });
+        this.startPumpingHeartbeat(socket, remoteAddr, remotePort);
+    }
+    /**
+     * Creating a heartbeat pump to keep the connection alive
+     */
+    startPumpingHeartbeat(socket, remoteAddr, remotePort){
+        // Start a heartbeat interval
+        const heartbeatInterval = setInterval(() => {
+            if (socket.destroyed) {
+                clearInterval(heartbeatInterval);
+                return;
+            }
+            
+            // Check if socket is still writable
+            if (socket.writable) {
+                try {
+                    // For GT06 devices, you can use the heartbeat data
+                    const model = Server.getDevices().identifyModelByDeviceIP(remoteAddr, remotePort);
+                    if (model && typeof model.heartbeatData === 'function') {
+                        socket.write(model.heartbeatData());
+                    }
+                } catch (err) {
+                    Debug.log(`Heartbeat error for ${remoteAddr}:${remotePort}`, err.message);
+                    socket.destroy();
+                    clearInterval(heartbeatInterval);
+                }
+            } else {
+                socket.destroy();
+                clearInterval(heartbeatInterval);
+            }
+        }, 45000); 
+    }
+
+    startConnectionMonitoring() {
+        // Check for stale connections every 5 minutes
+        this.__monitorInterval = setInterval(() => {
+            const sockets = this.getSockets();
+            const now = Date.now();
+            
+            Object.entries(sockets).forEach(([key, socket]) => {
+                // If the socket has a lastActivity timestamp and it's been inactive for too long
+                if (socket.lastActivity && (now - socket.lastActivity > 300000)) { // 5 minutes
+                    Debug.log(`Closing stale connection: ${key} (inactive for ${Math.round((now - socket.lastActivity)/1000)}s)`);
+                    socket.destroy();
+                    this.removeSocket(key);
+                }
+            });
+            
+            Debug.log(`Connection monitor: ${Object.keys(sockets).length} active connections`);
+        }, 300000); // Run every 5 minutes
+        
+        return this;
     }
     
     onData(data, socket, remoteAddr, remotePort){
+        // Update last activity timestamp
+        const socketKey = remoteAddr + ':' + remotePort;
+        const existingSocket = this.getSocket(socketKey);
+        if (existingSocket) {
+            existingSocket.lastActivity = Date.now();
+        }
         this.emit('data', data, socket, remoteAddr, remotePort);
     }
 
@@ -78,6 +147,21 @@ class TcpServer extends EventHandler {
 
     onError(error, remoteAddr, remotePort){
         Debug.log(`Error occurred in `,`${remoteAddr}:${remotePort} ` ,error.message);
+
+        // Clean up socket on error
+        const socketKey = remoteAddr + ':' + remotePort;
+        const socket = this.getSocket(socketKey);
+        
+        if (socket && !socket.destroyed) {
+            socket.destroy();
+        }
+        
+        this.removeSocket(socketKey);
+        
+        // If it's a timeout error, we might want to try reconnecting
+        if (error.code === 'ETIMEDOUT') {
+            Debug.log(`Connection timed out for ${remoteAddr}:${remotePort}, cleaning up resources`);
+        }
     }
 
     static init(host, port){
@@ -87,6 +171,7 @@ class TcpServer extends EventHandler {
     listen(onListenCallback = null){
         this.getServer().listen(this.getPort(), this.getHost(), () => {
             Debug.log('TCP Server listening on', this.getHost() + ':' + this.getPort());
+            this.startConnectionMonitoring();
             if(onListenCallback) onListenCallback()
         });
     }
